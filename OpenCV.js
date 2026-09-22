@@ -3,27 +3,74 @@
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
 
 async function classifyPieces(squares) {
-    // In the future, you will load your trained model here:
-    // const model = await tf.loadLayersModel('./model/model.json');
+    console.log("Loading Roboflow model... (This may take a second on first load)");
     
-    let boardState = []; // Will hold an 8x8 array
+    // 1. Authenticate and load the pre-trained model
+    // (You will replace these placeholders with the keys from the model you pick)
+    const model = await roboflow.auth({
+        publishable_key: "YOUR_PUBLISHABLE_KEY"
+    }).load({
+        model: "YOUR_MODEL_ID",
+        version: "VERSION_NUMBER"
+    });
+
+    console.log("Model loaded! Classifying 64 squares...");
+    let boardState = [];
+    
+    // Create an invisible canvas to hold each slice for the ML model
+    const tempCanvas = document.createElement('canvas');
+    // Match this to the squareSize in your scanFlattenedBoard function
+    tempCanvas.width = 80;  
+    tempCanvas.height = 80;
+    const tempCtx = tempCanvas.getContext('2d');
 
     for (let i = 0; i < squares.length; i++) {
-        // --- MACHINE LEARNING STEP ---
-        // 1. Convert the raw imageData into a TensorFlow tensor
-        // 2. Pass it to model.predict()
-        // 3. Get the index of the highest probability
-        // -----------------------------
+        // Draw the raw pixel data onto our temporary canvas
+        tempCtx.putImageData(squares[i], 0, 0);
         
-        // MOCK CLASSIFICATION (until your model is loaded):
-        // For now, we will pretend every square is empty just to build the pipeline
-        boardState.push('empty'); 
+        // 2. Ask Roboflow what piece is on this canvas
+        // Note: Use .classify() for Classification models, or .detect() for Object Detection models
+        const predictions = await model.classify(tempCanvas);
+        
+        let piece = 'empty';
+        
+        // 3. Extract the highest confidence result
+        if (predictions && Object.keys(predictions).length > 0) {
+            // predictions is usually returned as an object with class names as keys and confidence as values
+            // Let's find the one with the highest confidence
+            let topClass = 'empty';
+            let highestConfidence = 0;
+            
+            for (const [className, confidence] of Object.entries(predictions)) {
+                if (confidence > highestConfidence) {
+                    highestConfidence = confidence;
+                    topClass = className;
+                }
+            }
+            
+            piece = mapPredictionToFEN(topClass);
+        }
+        
+        boardState.push(piece);
     }
 
     const fenString = generateFEN(boardState);
     console.log("Derived FEN State: ", fenString);
+    alert("FEN Generated:\n" + fenString);
+}
+
+// 4. Map the Model's labels to standard FEN letters
+function mapPredictionToFEN(predictedClass) {
+    // IMPORTANT: You will need to change these keys to match EXACTLY 
+    // what the Roboflow model outputs (e.g., some say "White_Knight", some say "N")
+    const map = {
+        'white-pawn': 'P', 'white-knight': 'N', 'white-bishop': 'B', 'white-rook': 'R', 'white-queen': 'Q', 'white-king': 'K',
+        'black-pawn': 'p', 'black-knight': 'n', 'black-bishop': 'b', 'black-rook': 'r', 'black-queen': 'q', 'black-king': 'k',
+        'empty': 'empty', 'blank': 'empty'
+    };
     
-    // You can now load this FEN string into a visual chess UI (like chessboard.js)
+    // Fallback to 'empty' if the class isn't recognized
+    return map[predictedClass.toLowerCase()] || 'empty';
 }
 
 function generateFEN(boardArray) {
