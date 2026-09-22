@@ -1,20 +1,41 @@
-<input type="file" accept="image/*" capture="environment" id="cameraInput">
-<canvas id="sourceCanvas" style="display: none;"></canvas>
-<canvas id="flatBoardCanvas"></canvas>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chessboard Scanner</title>
+    
+    <!-- 1. Silences the 404 favicon error by providing an empty data URI -->
+    <link rel="icon" href="data:,">
 
-<script>
-const input = document.getElementById('cameraInput');
-const canvas = document.getElementById('sourceCanvas');
-const ctx = canvas.getContext('2d');
+    <!-- 2. Loads the actual OpenCV machine learning library from a CDN -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
 
-input.addEventListener('change', (e) => {
-    const img = new Image();
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        extractChessboard();
-    };
-    img.src = URL.createObjectURL(e.target.files[0]);
-});
-</script>
+    <!-- 3. Loads your custom logic from your local repository file -->
+    <script src="OpenCV.js"></script>
+</head>
+<body>
+    <input type="file" accept="image/*" capture="environment" id="cameraInput">
+    <canvas id="sourceCanvas" style="display: none;"></canvas>
+    <canvas id="flatBoardCanvas"></canvas>
+
+    <script>
+        const input = document.getElementById('cameraInput');
+        const canvas = document.getElementById('sourceCanvas');
+        const ctx = canvas.getContext('2d');
+
+        input.addEventListener('change', (e) => {
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                // This will now successfully fire because OpenCV.js is linked in the head
+                extractChessboard();
+            };
+            img.src = URL.createObjectURL(e.target.files[0]);
+        });
+    </script>
+</body>
+</html>
