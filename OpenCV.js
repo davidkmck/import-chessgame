@@ -89,3 +89,24 @@ function warpBoard(src, boardContour) {
 
     srcTri.delete(); dstTri.delete(); M.delete(); warped.delete();
 }
+
+function scanFlattenedBoard() {
+    const flatCanvas = document.getElementById('flatBoardCanvas');
+    const ctx = flatCanvas.getContext('2d');
+    
+    // If you used 640 for the warp, this will be 80 pixels
+    const squareSize = flatCanvas.width / 8; 
+    const squares = [];
+
+    // Loop through rows (Ranks 8 to 1) and columns (Files a to h)
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            // Extract the pixel data for this specific square
+            const squareData = ctx.getImageData(col * squareSize, row * squareSize, squareSize, squareSize);
+            squares.push(squareData);
+        }
+    }
+
+    console.log(`Successfully sliced ${squares.length} squares. Ready for ML classification.`);
+    classifyPieces(squares);
+}
