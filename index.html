@@ -1,0 +1,20 @@
+<input type="file" accept="image/*" capture="environment" id="cameraInput">
+<canvas id="sourceCanvas" style="display: none;"></canvas>
+<canvas id="flatBoardCanvas"></canvas>
+
+<script>
+const input = document.getElementById('cameraInput');
+const canvas = document.getElementById('sourceCanvas');
+const ctx = canvas.getContext('2d');
+
+input.addEventListener('change', (e) => {
+    const img = new Image();
+    img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        extractChessboard();
+    };
+    img.src = URL.createObjectURL(e.target.files[0]);
+});
+</script>
