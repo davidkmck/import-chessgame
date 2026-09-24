@@ -8,8 +8,11 @@ async function classifyPieces(squares) {
     
     // 1. ENCODE THE URL: This prevents the proxy from breaking the Roboflow ?api_key parameter
     const rawUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF";
-    const targetUrl = encodeURIComponent(rawUrl);
+ //   const targetUrl = encodeURIComponent(rawUrl);
 
+    // 1. USE DIRECT URL (No Proxy)
+    const targetUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF";
+   
     // 2. BATCHING: Process 8 squares at a time (one row) to avoid DDoS rate-limits
     for (let i = 0; i < squares.length; i += 8) {
         const batch = squares.slice(i, i + 8);
@@ -27,7 +30,8 @@ async function classifyPieces(squares) {
                 const response = await fetch("https://corsproxy.io/?" + targetUrl, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json"
+// This bypasses the strict browser CORS check
+                        "Content-Type": "text/plain"
                     },
                     body: JSON.stringify({
                         "inputs": {
