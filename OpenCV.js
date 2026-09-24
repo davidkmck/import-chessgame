@@ -5,9 +5,10 @@ async function classifyPieces(squares) {
     console.log("Processing 64 squares in batches of 8 (Standard API)...");
     
     let boardState = [];
-    // Standard Roboflow URL structure: subdomain / workspace / project / version ? api_key
-    const targetUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
-
+// Route the standard Roboflow endpoint through a CORS proxy so GitHub Pages can talk to it
+    const rawRoboflowUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
+    const targetUrl = "https://corsproxy.io/?"; + encodeURIComponent(rawRoboflowUrl);
+    
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let i = 0; i < squares.length; i += 8) {
