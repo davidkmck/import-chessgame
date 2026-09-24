@@ -1,36 +1,44 @@
 // A map of the 13 classes your ML model will need to learn
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
-
 async function classifyPieces(squares) {
-    console.log("Processing 64 squares in batches of 8 (Standard API)...");
-    
+    console.log("Processing 64 squares in batches of 8 (Workflows API)...");
     let boardState = [];
-// Route the standard Roboflow endpoint through a CORS proxy so GitHub Pages can talk to it
-    const rawRoboflowUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
+    
+    // 1. Switch to the new Serverless Workflow endpoint
+    const rawRoboflowUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types";
     const targetUrl = "https://corsproxy.io/?" + encodeURIComponent(rawRoboflowUrl);
+    
+    const apiKey = "EOfoAxwLvo0TFydOmFFF";
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let i = 0; i < squares.length; i += 8) {
         const batch = squares.slice(i, i + 8);
-        
         const batchPromises = batch.map(async (squareData) => {
             const canvas = document.createElement('canvas');
             canvas.width = 80;
             canvas.height = 80;
             const ctx = canvas.getContext('2d');
             ctx.putImageData(squareData, 0, 0);
-
-            const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
+            
+            // Generate data URL (Roboflow workflows accept data URIs or image URLs)
+            const base64DataUrl = canvas.toDataURL("image/jpeg");
 
             try {
-                // Send base64 image as JSON body to the standard endpoint
+                // 2. Match the exact JSON body structure required by Roboflow workflows
                 const response = await fetch(targetUrl, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${apiKey}` // 3. Use Bearer token auth
                     },
                     body: JSON.stringify({
-                        "image": base64Image
+                        "inputs": {
+                            "image": {
+                                "type": "url",
+                                "value": base64DataUrl
+                            },
+                            "confidence": 0.4
+                        }
                     })
                 });
 
@@ -39,32 +47,37 @@ async function classifyPieces(squares) {
                 }
 
                 const data = await response.json();
+                
+                // Note: Depending on how your Roboflow workflow is structured, 
+                // the output schema might be nested differently (e.g., data.outputs[0]...).
+                // Check your workflow output definition if predictions don't parse correctly.
                 let piece = 'empty';
-
-                if (data.top) {
-                    piece = mapPredictionToFEN(data.top);
-                } else if (Array.isArray(data.predictions) && data.predictions.length > 0) {
-                    piece = mapPredictionToFEN(data.predictions[0].class);
+                if (data.outputs && data.outputs.length > 0) {
+                    // Adjust this path based on your specific workflow output keys
+                    const prediction = data.outputs[0]; 
+                    if (prediction.top) {
+                        piece = mapPredictionToFEN(prediction.top);
+                    } else if (Array.isArray(prediction.predictions) && prediction.predictions.length > 0) {
+                        piece = mapPredictionToFEN(prediction.predictions[0].class);
+                    }
                 }
                 return piece;
             } catch (e) {
                 console.error("API failed for a square:", e);
-                return 'empty'; 
+                return 'empty';
             }
         });
 
         const batchResults = await Promise.all(batchPromises);
         boardState.push(...batchResults);
-        
         console.log(`Processed row ${Math.floor(i/8) + 1} of 8...`);
-        await delay(250); 
+        await delay(250);
     }
 
     const fenString = generateFEN(boardState);
     console.log("Derived FEN State: ", fenString);
     alert("FEN Generated:\n" + fenString);
 }
-
 // 4. Map the Model's labels to standard FEN letters
 function mapPredictionToFEN(predictedClass) {
     // IMPORTANT: You will need to change these keys to match EXACTLY 
