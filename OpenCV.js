@@ -7,10 +7,10 @@ async function classifyPieces(squares) {
     
     let boardState = [];
     
-    // Roboflow's standard inference endpoint has CORS completely open for front-end apps!
-    // Note: If you get a 404, try changing 'classify' to 'detect', or check your version number (the /1)
-    const targetUrl = "https://classify.roboflow.com/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
 
+    // Update the URL to include your workspace name and project ID properly
+    const targetUrl = "https://detect.roboflow.com/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
+    
     // Helper function to create a small delay to prevent rate-limiting
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
