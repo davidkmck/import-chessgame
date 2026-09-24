@@ -16,13 +16,13 @@ async function classifyPieces(squares) {
         // 2. Convert the canvas to a base64 string and strip the data prefix
         const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
 
-        // 3. Call your custom Workflow API
-        const response = await fetch("https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types", {
+// 3. Call your custom Workflow API
+        // By moving the API key to the URL (?api_key=...), we avoid triggering a strict CORS preflight header block.
+        const response = await fetch("https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
-                // ⚠️ DANGER: Do not commit this raw key to your public GitHub repo!
-                "Authorization": "Bearer EOfoAxwLvo0TFydOmFFF" 
+                "Content-Type": "application/json"
+                // The Authorization Bearer header has been intentionally removed
             },
             body: JSON.stringify({
                 "inputs": {
