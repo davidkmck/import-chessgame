@@ -2,12 +2,11 @@
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
 
 async function classifyPieces(squares) {
-    console.log("Processing 64 squares in batches of 8 (Standard POST API)...");
+    console.log("Processing 64 squares in batches of 8 (Standard API)...");
     
     let boardState = [];
-    // Standard serverless endpoint format expects api_key as a query parameter or path variable depending on exact route. 
-    // Let's pass it cleanly in standard Roboflow REST format:
-    const targetUrl = `https://detect.roboflow.com/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF`;
+    // Standard Roboflow URL structure: subdomain / workspace / project / version ? api_key
+    const targetUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -24,14 +23,15 @@ async function classifyPieces(squares) {
             const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
 
             try {
-                // If query string parameters trigger a 405, Roboflow expects parameters 
-                // sent as form-urlencoded or a standard multipart/json payload. 
+                // Send base64 image as JSON body to the standard endpoint
                 const response = await fetch(targetUrl, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
+                        "Content-Type": "application/json"
                     },
-                    body: `api_key=EOfoAxwLvo0TFydOmFFF&image=${encodeURIComponent(base64Image)}`
+                    body: JSON.stringify({
+                        "image": base64Image
+                    })
                 });
 
                 if (!response.ok) {
