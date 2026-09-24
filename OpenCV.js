@@ -9,7 +9,8 @@ async function classifyPieces(squares) {
     
 
     // Update the URL to include your workspace name and project ID properly
-    const targetUrl = "https://detect.roboflow.com/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
+
+    const targetUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
     
     // Helper function to create a small delay to prevent rate-limiting
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
