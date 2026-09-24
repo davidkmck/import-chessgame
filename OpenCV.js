@@ -1,18 +1,12 @@
 // A map of the 13 classes your ML model will need to learn
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
 
-
 async function classifyPieces(squares) {
-    console.log("Processing 64 squares in batches of 8 (Standard API)...");
+    console.log("Processing 64 squares in batches of 8 (Standard JSON API)...");
     
     let boardState = [];
-    
+    const targetUrl = "https://detect.roboflow.com/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
 
-    // Update the URL to include your workspace name and project ID properly
-
-    const targetUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
-    
-    // Helper function to create a small delay to prevent rate-limiting
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let i = 0; i < squares.length; i += 8) {
@@ -31,11 +25,12 @@ async function classifyPieces(squares) {
                 const response = await fetch(targetUrl, {
                     method: "POST",
                     headers: {
-                        // Standard API takes URL-encoded base64 directly
-                        "Content-Type": "application/x-www-form-urlencoded"
+                        "Content-Type": "application/json"
                     },
-                    // No complex JSON needed, just send the image string
-                    body: base64Image 
+                    // Standard API expects the image wrapped in a JSON body parameter
+                    body: JSON.stringify({
+                        "image": base64Image
+                    })
                 });
 
                 if (!response.ok) {
@@ -45,7 +40,6 @@ async function classifyPieces(squares) {
                 const data = await response.json();
                 let piece = 'empty';
 
-                // Parse standard API response (Handles both Classification and Object Detection formats)
                 if (data.top) {
                     piece = mapPredictionToFEN(data.top);
                 } else if (Array.isArray(data.predictions) && data.predictions.length > 0) {
