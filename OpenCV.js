@@ -2,18 +2,14 @@
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
 
 async function classifyPieces(squares) {
-    console.log("Processing 64 squares in batches of 8...");
+    console.log("Processing 64 squares in batches of 8 (Direct API)...");
     
     let boardState = [];
     
-    // 1. ENCODE THE URL: This prevents the proxy from breaking the Roboflow ?api_key parameter
-    const rawUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF";
- //   const targetUrl = encodeURIComponent(rawUrl);
-
-    // 1. USE DIRECT URL (No Proxy)
+    // Direct URL to Roboflow. Do NOT use encodeURIComponent or corsproxy.io
     const targetUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF";
-   
-    // 2. BATCHING: Process 8 squares at a time (one row) to avoid DDoS rate-limits
+
+    // Process 8 squares at a time (one row) to avoid rate-limits
     for (let i = 0; i < squares.length; i += 8) {
         const batch = squares.slice(i, i + 8);
         
@@ -27,11 +23,12 @@ async function classifyPieces(squares) {
             const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
 
             try {
-                const response = await fetch("https://corsproxy.io/?" + targetUrl, {
+                // Fetch directly from Roboflow
+                const response = await fetch(targetUrl, {
                     method: "POST",
                     headers: {
-// This bypasses the strict browser CORS check
-                        "Content-Type": "text/plain"
+                        // "text/plain" tricks the browser into skipping the strict CORS preflight check
+                        "Content-Type": "text/plain" 
                     },
                     body: JSON.stringify({
                         "inputs": {
@@ -44,6 +41,10 @@ async function classifyPieces(squares) {
                     })
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
                 let piece = 'empty';
 
@@ -55,7 +56,7 @@ async function classifyPieces(squares) {
                 return piece;
             } catch (e) {
                 console.error("API failed for a square:", e);
-                return 'empty'; // Fallback so the board keeps generating even if one request fails
+                return 'empty'; // Fallback so the board keeps generating
             }
         });
 
@@ -70,7 +71,6 @@ async function classifyPieces(squares) {
     console.log("Derived FEN State: ", fenString);
     alert("FEN Generated:\n" + fenString);
 }
-
 // 4. Map the Model's labels to standard FEN letters
 function mapPredictionToFEN(predictedClass) {
     // IMPORTANT: You will need to change these keys to match EXACTLY 
