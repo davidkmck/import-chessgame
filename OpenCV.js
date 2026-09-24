@@ -23,12 +23,12 @@ async function classifyPieces(squares) {
             const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
 
             try {
-                // Fetch directly from Roboflow
+// Fetch directly from Roboflow
                 const response = await fetch(targetUrl, {
                     method: "POST",
                     headers: {
-                        // "text/plain" tricks the browser into skipping the strict CORS preflight check
-                        "Content-Type": "text/plain" 
+                        // We must use strict JSON for Roboflow to accept the payload
+                        "Content-Type": "application/json" 
                     },
                     body: JSON.stringify({
                         "inputs": {
