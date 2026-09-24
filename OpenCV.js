@@ -1,15 +1,19 @@
 // A map of the 13 classes your ML model will need to learn
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
 
+
 async function classifyPieces(squares) {
-    console.log("Processing 64 squares in batches of 8 (Direct API)...");
+    console.log("Processing 64 squares in batches of 8 (Standard API)...");
     
     let boardState = [];
     
-    // Direct URL to Roboflow. Do NOT use encodeURIComponent or corsproxy.io
-    const targetUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF";
+    // Roboflow's standard inference endpoint has CORS completely open for front-end apps!
+    // Note: If you get a 404, try changing 'classify' to 'detect', or check your version number (the /1)
+    const targetUrl = "https://classify.roboflow.com/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
 
-    // Process 8 squares at a time (one row) to avoid rate-limits
+    // Helper function to create a small delay to prevent rate-limiting
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
     for (let i = 0; i < squares.length; i += 8) {
         const batch = squares.slice(i, i + 8);
         
@@ -23,22 +27,14 @@ async function classifyPieces(squares) {
             const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
 
             try {
-// Fetch directly from Roboflow
                 const response = await fetch(targetUrl, {
                     method: "POST",
                     headers: {
-                        // We must use strict JSON for Roboflow to accept the payload
-                        "Content-Type": "application/json" 
+                        // Standard API takes URL-encoded base64 directly
+                        "Content-Type": "application/x-www-form-urlencoded"
                     },
-                    body: JSON.stringify({
-                        "inputs": {
-                            "image": {
-                                "type": "base64",
-                                "value": base64Image
-                            },
-                            "confidence": 0.4
-                        }
-                    })
+                    // No complex JSON needed, just send the image string
+                    body: base64Image 
                 });
 
                 if (!response.ok) {
@@ -48,29 +44,31 @@ async function classifyPieces(squares) {
                 const data = await response.json();
                 let piece = 'empty';
 
-                if (data && data.outputs && data.outputs[0] && data.outputs[0].top) {
-                    piece = mapPredictionToFEN(data.outputs[0].top);
-                } else if (data && data.outputs && data.outputs[0] && data.outputs[0].predictions && data.outputs[0].predictions.length > 0) {
-                    piece = mapPredictionToFEN(data.outputs[0].predictions[0].class);
+                // Parse standard API response (Handles both Classification and Object Detection formats)
+                if (data.top) {
+                    piece = mapPredictionToFEN(data.top);
+                } else if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+                    piece = mapPredictionToFEN(data.predictions[0].class);
                 }
                 return piece;
             } catch (e) {
                 console.error("API failed for a square:", e);
-                return 'empty'; // Fallback so the board keeps generating
+                return 'empty'; 
             }
         });
 
-        // Wait for the row to finish before firing the next 8 requests
         const batchResults = await Promise.all(batchPromises);
         boardState.push(...batchResults);
         
         console.log(`Processed row ${Math.floor(i/8) + 1} of 8...`);
+        await delay(250); 
     }
 
     const fenString = generateFEN(boardState);
     console.log("Derived FEN State: ", fenString);
     alert("FEN Generated:\n" + fenString);
 }
+
 // 4. Map the Model's labels to standard FEN letters
 function mapPredictionToFEN(predictedClass) {
     // IMPORTANT: You will need to change these keys to match EXACTLY 
