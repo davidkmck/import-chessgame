@@ -2,66 +2,65 @@
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
 
 async function classifyPieces(squares) {
-    console.log("Firing 64 requests to Roboflow Workflows API...");
+    console.log("Processing 64 squares in batches of 8...");
     
-    // Map over the 64 squares and process them concurrently
-    const promises = squares.map(async (squareData) => {
-        // 1. Create a unique canvas for this specific slice
-        const canvas = document.createElement('canvas');
-        canvas.width = 80;
-        canvas.height = 80;
-        const ctx = canvas.getContext('2d');
-        ctx.putImageData(squareData, 0, 0);
+    let boardState = [];
+    
+    // 1. ENCODE THE URL: This prevents the proxy from breaking the Roboflow ?api_key parameter
+    const rawUrl = "https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF";
+    const targetUrl = encodeURIComponent(rawUrl);
 
-        // 2. Convert the canvas to a base64 string and strip the data prefix
-        const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
+    // 2. BATCHING: Process 8 squares at a time (one row) to avoid DDoS rate-limits
+    for (let i = 0; i < squares.length; i += 8) {
+        const batch = squares.slice(i, i + 8);
+        
+        const batchPromises = batch.map(async (squareData) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 80;
+            canvas.height = 80;
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(squareData, 0, 0);
 
-// 3. Call your custom Workflow API via a CORS Proxy
-        // corsproxy.io intercepts the request and injects the missing Access-Control-Allow-Origin headers
-        const response = await fetch("https://corsproxy.io/?https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types?api_key=EOfoAxwLvo0TFydOmFFF", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                "inputs": {
-                    "image": {
-                        "type": "base64",
-                        "value": base64Image
+            const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
+
+            try {
+                const response = await fetch("https://corsproxy.io/?" + targetUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
                     },
-                    "confidence": 0.4
+                    body: JSON.stringify({
+                        "inputs": {
+                            "image": {
+                                "type": "base64",
+                                "value": base64Image
+                            },
+                            "confidence": 0.4
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                let piece = 'empty';
+
+                if (data && data.outputs && data.outputs[0] && data.outputs[0].top) {
+                    piece = mapPredictionToFEN(data.outputs[0].top);
+                } else if (data && data.outputs && data.outputs[0] && data.outputs[0].predictions && data.outputs[0].predictions.length > 0) {
+                    piece = mapPredictionToFEN(data.outputs[0].predictions[0].class);
                 }
-            })
+                return piece;
+            } catch (e) {
+                console.error("API failed for a square:", e);
+                return 'empty'; // Fallback so the board keeps generating even if one request fails
+            }
         });
 
-        const data = await response.json();
+        // Wait for the row to finish before firing the next 8 requests
+        const batchResults = await Promise.all(batchPromises);
+        boardState.push(...batchResults);
         
-        let piece = 'empty';
-        
-        // 4. Parse the Workflow response
-        // Workflows format their JSON based on how you named your output blocks.
-        // Uncomment the console.log below to inspect the structure in your browser dev tools.
-        
-        // console.log("API Response for square:", data);
-
-        try {
-            // Example A: If your workflow uses a Classification block
-            if (data && data.outputs && data.outputs[0] && data.outputs[0].top) {
-                piece = mapPredictionToFEN(data.outputs[0].top);
-            } 
-            // Example B: If your workflow uses an Object Detection block
-            else if (data && data.outputs && data.outputs[0] && data.outputs[0].predictions && data.outputs[0].predictions.length > 0) {
-                piece = mapPredictionToFEN(data.outputs[0].predictions[0].class);
-            }
-        } catch (e) {
-            console.error("Failed to parse piece data:", e);
-        }
-
-        return piece; 
-    });
-
-    // Wait for all 64 API requests to finish
-    const boardState = await Promise.all(promises);
+        console.log(`Processed row ${Math.floor(i/8) + 1} of 8...`);
+    }
 
     const fenString = generateFEN(boardState);
     console.log("Derived FEN State: ", fenString);
