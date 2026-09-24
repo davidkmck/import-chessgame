@@ -1,6 +1,6 @@
-
 // A map of the 13 classes your ML model will need to learn
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
+
 async function classifyPieces(squares) {
     console.log("Firing 64 requests to Roboflow Workflows API...");
     
@@ -147,7 +147,18 @@ function extractChessboard() {
         warpBoard(src, boardContour);
         boardContour.delete();
     } else {
-        console.warn("No chessboard detected in frame.");
+        console.warn("No inner chessboard detected. Assuming the entire uploaded image is the board.");
+        
+        // FALLBACK: The image is likely a cropped digital screenshot. 
+        // Skip the complex perspective math and just stretch it to a perfect 640x640 square.
+        const boardSize = 640;
+        let warped = new cv.Mat();
+        cv.resize(src, warped, new cv.Size(boardSize, boardSize), 0, 0, cv.INTER_LINEAR);
+        cv.imshow('flatBoardCanvas', warped);
+        warped.delete();
+        
+        // Move to the next step: slice the board into 64 pieces
+        scanFlattenedBoard();
     }
 
     src.delete(); gray.delete(); blurred.delete(); 
@@ -197,6 +208,9 @@ function warpBoard(src, boardContour) {
     cv.imshow('flatBoardCanvas', warped);
 
     srcTri.delete(); dstTri.delete(); M.delete(); warped.delete();
+    
+    // Move to the next step: slice the board into 64 pieces
+    scanFlattenedBoard();
 }
 
 function scanFlattenedBoard() {
