@@ -7,8 +7,7 @@ async function classifyPieces(squares) {
     let boardState = [];
 // Route the standard Roboflow endpoint through a CORS proxy so GitHub Pages can talk to it
     const rawRoboflowUrl = "https://detect.roboflow.com/david-mcknight/chess-com-piece-types/1?api_key=EOfoAxwLvo0TFydOmFFF";
-    const targetUrl = "https://corsproxy.io/?"; + encodeURIComponent(rawRoboflowUrl);
-    
+    const targetUrl = "https://corsproxy.io/?" + encodeURIComponent(rawRoboflowUrl);
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let i = 0; i < squares.length; i += 8) {
