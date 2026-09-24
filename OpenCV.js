@@ -1,58 +1,68 @@
 
 // A map of the 13 classes your ML model will need to learn
 const pieceMap = ['p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K', 'empty'];
-
 async function classifyPieces(squares) {
-    console.log("Loading Roboflow model... (This may take a second on first load)");
+    console.log("Firing 64 requests to Roboflow Workflows API...");
     
-    // 1. Authenticate and load the pre-trained model
-    // (You will replace these placeholders with the keys from the model you pick)
-    const model = await roboflow.auth({
-        publishable_key: "YOUR_PUBLISHABLE_KEY"
-    }).load({
-        model: "YOUR_MODEL_ID",
-        version: "VERSION_NUMBER"
-    });
+    // Map over the 64 squares and process them concurrently
+    const promises = squares.map(async (squareData) => {
+        // 1. Create a unique canvas for this specific slice
+        const canvas = document.createElement('canvas');
+        canvas.width = 80;
+        canvas.height = 80;
+        const ctx = canvas.getContext('2d');
+        ctx.putImageData(squareData, 0, 0);
 
-    console.log("Model loaded! Classifying 64 squares...");
-    let boardState = [];
-    
-    // Create an invisible canvas to hold each slice for the ML model
-    const tempCanvas = document.createElement('canvas');
-    // Match this to the squareSize in your scanFlattenedBoard function
-    tempCanvas.width = 80;  
-    tempCanvas.height = 80;
-    const tempCtx = tempCanvas.getContext('2d');
+        // 2. Convert the canvas to a base64 string and strip the data prefix
+        const base64Image = canvas.toDataURL("image/jpeg").split(',')[1];
 
-    for (let i = 0; i < squares.length; i++) {
-        // Draw the raw pixel data onto our temporary canvas
-        tempCtx.putImageData(squares[i], 0, 0);
-        
-        // 2. Ask Roboflow what piece is on this canvas
-        // Note: Use .classify() for Classification models, or .detect() for Object Detection models
-        const predictions = await model.classify(tempCanvas);
+        // 3. Call your custom Workflow API
+        const response = await fetch("https://serverless.roboflow.com/david-mcknight/workflows/chess-com-piece-types", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                // ⚠️ DANGER: Do not commit this raw key to your public GitHub repo!
+                "Authorization": "Bearer EOfoAxwLvo0TFydOmFFF" 
+            },
+            body: JSON.stringify({
+                "inputs": {
+                    "image": {
+                        "type": "base64",
+                        "value": base64Image
+                    },
+                    "confidence": 0.4
+                }
+            })
+        });
+
+        const data = await response.json();
         
         let piece = 'empty';
         
-        // 3. Extract the highest confidence result
-        if (predictions && Object.keys(predictions).length > 0) {
-            // predictions is usually returned as an object with class names as keys and confidence as values
-            // Let's find the one with the highest confidence
-            let topClass = 'empty';
-            let highestConfidence = 0;
-            
-            for (const [className, confidence] of Object.entries(predictions)) {
-                if (confidence > highestConfidence) {
-                    highestConfidence = confidence;
-                    topClass = className;
-                }
-            }
-            
-            piece = mapPredictionToFEN(topClass);
-        }
+        // 4. Parse the Workflow response
+        // Workflows format their JSON based on how you named your output blocks.
+        // Uncomment the console.log below to inspect the structure in your browser dev tools.
         
-        boardState.push(piece);
-    }
+        // console.log("API Response for square:", data);
+
+        try {
+            // Example A: If your workflow uses a Classification block
+            if (data && data.outputs && data.outputs[0] && data.outputs[0].top) {
+                piece = mapPredictionToFEN(data.outputs[0].top);
+            } 
+            // Example B: If your workflow uses an Object Detection block
+            else if (data && data.outputs && data.outputs[0] && data.outputs[0].predictions && data.outputs[0].predictions.length > 0) {
+                piece = mapPredictionToFEN(data.outputs[0].predictions[0].class);
+            }
+        } catch (e) {
+            console.error("Failed to parse piece data:", e);
+        }
+
+        return piece; 
+    });
+
+    // Wait for all 64 API requests to finish
+    const boardState = await Promise.all(promises);
 
     const fenString = generateFEN(boardState);
     console.log("Derived FEN State: ", fenString);
